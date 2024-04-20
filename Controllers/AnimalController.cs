@@ -1,82 +1,162 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Data;
+using System.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
 using REST.Models;
 
 namespace REST.Controllers
 {
-    [Route("api/animals")]
+    [Route("api/[controller]")]
     [ApiController]
     public class AnimalController : ControllerBase
     {
-        private static readonly List<Animal> _animals = new()
+        private readonly IConfiguration _configuration;
+
+        public AnimalController(IConfiguration configuration)
         {
-            new Animal { IdAnimal = 1, Name = "Leopard", Description = "Leopards are agile predators.", Category = "Mammal", Area = "Various" },
-            new Animal { IdAnimal = 2, Name = "Gorilla", Description = "Gorillas are the largest living primates.", Category = "Mammal", Area = "Africa" },
-            new Animal { IdAnimal = 3, Name = "Koala", Description = null, Category = "Mammal", Area = "Australia" },
-            new Animal { IdAnimal = 4, Name = "Lizard", Description = "Lizards are reptiles with long bodies and tails.", Category = "Reptile", Area = "Various" },
-            new Animal { IdAnimal = 5, Name = "Ostrich", Description = "Ostriches are flightless birds with long necks.", Category = "Bird", Area = "Africa" },
-            new Animal { IdAnimal = 6, Name = "Shark", Description = "Sharks are cartilaginous fish known for their sharp teeth.", Category = "Fish", Area = "Ocean" },
-            new Animal { IdAnimal = 7, Name = "Polar Bear", Description = "Polar bears are marine mammals native to the Arctic.", Category = "Mammal", Area = "Arctic" },
-            new Animal { IdAnimal = 8, Name = "Gazelle", Description = "Gazelles are swift and graceful antelopes.", Category = "Mammal", Area = "Africa" },
-            new Animal { IdAnimal = 9, Name = "Hippopotamus", Description = "Hippos are large herbivorous mammals.", Category = "Mammal", Area = "Africa" },
-            new Animal { IdAnimal = 10, Name = "Zebra", Description = null, Category = "Mammal", Area = "Africa" }
-        };
+            _configuration = configuration;
+        }
+
+        private List<Dictionary<string, object>> ConvertDataTableToList(DataTable dt)
+        {
+            var columns = dt.Columns.Cast<DataColumn>();
+            return dt.Rows.Cast<DataRow>()
+                .Select(row => columns.ToDictionary(column => column.ColumnName, column => row[column])).ToList();
+        }
 
         [HttpGet]
-        public IActionResult GetAnimals([FromQuery] string orderBy = "name")
+        public IActionResult GetAnimals(string orderBy = "name")
         {
-            var sortedAnimals = SortAnimals(orderBy);
-            return Ok(sortedAnimals);
+            try
+            {
+                string query = $"SELECT * FROM Animals ORDER BY {orderBy}";
+                DataTable table = new DataTable();
+                string sqlDataSource = _configuration.GetConnectionString("DefaultConnection");
+
+                using (SqlConnection myCon = new SqlConnection(sqlDataSource))
+                {
+                    myCon.Open();
+                    using (SqlCommand myCommand = new SqlCommand(query, myCon))
+                    {
+                        using (SqlDataReader myReader = myCommand.ExecuteReader())
+                        {
+                            table.Load(myReader);
+                        }
+                    }
+                }
+
+                var list = ConvertDataTableToList(table);
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+            }
         }
 
         [HttpPost]
-        public IActionResult CreateAnimal(Animal animal)
+        public IActionResult PostAnimal(Animal animal)
         {
-            _animals.Add(animal);
-            return StatusCode(StatusCodes.Status201Created);
+            try
+            {
+                string query =
+                    @"INSERT INTO Animals (Name, Description, Category, Area) VALUES (@Name, @Description, @Category, @Area)";
+                DataTable table = new DataTable();
+                string sqlDataSource = _configuration.GetConnectionString("DefaultConnection");
+                SqlDataReader myReader;
+
+                using (SqlConnection myCon = new SqlConnection(sqlDataSource))
+                {
+                    myCon.Open();
+                    using (SqlCommand myCommand = new SqlCommand(query, myCon))
+                    {
+                        myCommand.Parameters.AddWithValue("@Name", animal.Name);
+                        myCommand.Parameters.AddWithValue("@Description", animal.Description);
+                        myCommand.Parameters.AddWithValue("@Category", animal.Category);
+                        myCommand.Parameters.AddWithValue("@Area", animal.Area);
+                        myReader = myCommand.ExecuteReader();
+                        table.Load(myReader);
+                        myReader.Close();
+                    }
+                }
+
+                return StatusCode(StatusCodes.Status201Created, "Added Successfully");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+            }
         }
 
         [HttpPut("{id:int}")]
-        public IActionResult UpdateAnimal(int id, Animal animal)
+        public IActionResult PutAnimal(int id, Animal animal)
         {
-            var animalToEdit = _animals.FirstOrDefault(an => an.IdAnimal == id);
+            string query =
+                @"UPDATE Animals SET Name = @Name, Description = @Description, Category = @Category, Area = @Area WHERE IdAnimal = @Id";
+            string sqlDataSource = _configuration.GetConnectionString("DefaultConnection");
 
-            if (animalToEdit == null)
+            using (SqlConnection myCon = new SqlConnection(sqlDataSource))
             {
-                return NotFound($"Animal with id {id} was not found");
-            }
+                using (SqlCommand myCommand = new SqlCommand(query, myCon))
+                {
+                    myCommand.Parameters.AddWithValue("@Id", id);
+                    myCommand.Parameters.AddWithValue("@Name", animal.Name);
+                    myCommand.Parameters.AddWithValue("@Description", animal.Description);
+                    myCommand.Parameters.AddWithValue("@Category", animal.Category);
+                    myCommand.Parameters.AddWithValue("@Area", animal.Area);
 
-            _animals.Remove(animalToEdit);
-            _animals.Add(animal);
-            return NoContent();
+                    try
+                    {
+                        myCon.Open();
+                        int rowsAffected = myCommand.ExecuteNonQuery();
+                        if (rowsAffected > 0)
+                        {
+                            return new JsonResult("Updated Successfully");
+                        }
+                        else
+                        {
+                            return NotFound($"Animal with id {id} was not found");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+                    }
+                }
+            }
         }
 
-        [HttpDelete("{id:int}")]
+
         public IActionResult DeleteAnimal(int id)
         {
-            var animalToDelete = _animals.FirstOrDefault(an => an.IdAnimal == id);
-            if (animalToDelete == null)
+            string query = @"DELETE FROM Animals WHERE IdAnimal = @Id";
+            string sqlDataSource = _configuration.GetConnectionString("DefaultConnection");
+
+            try
             {
-                return NotFound($"Animal with id {id} was not found");
+                using (SqlConnection myCon = new SqlConnection(sqlDataSource))
+                {
+                    using (SqlCommand myCommand = new SqlCommand(query, myCon))
+                    {
+                        myCommand.Parameters.AddWithValue("@Id", id);
+
+                        myCon.Open();
+                        int rowsAffected = myCommand.ExecuteNonQuery();
+                        if (rowsAffected > 0)
+                        {
+                            return new JsonResult("Deleted Successfully");
+                        }
+                        else
+                        {
+                            return NotFound($"Animal with id {id} was not found");
+                        }
+                    }
+                }
             }
-
-            _animals.Remove(animalToDelete);
-            return NoContent();
-        }
-
-        private IEnumerable<Animal> SortAnimals(string orderBy)
-        {
-            return orderBy switch
+            catch (Exception ex)
             {
-                "name" => _animals.OrderBy(a => a.Name),
-                "description" => _animals.OrderBy(a => a.Description),
-                "category" => _animals.OrderBy(a => a.Category),
-                "area" => _animals.OrderBy(a => a.Area),
-                _ => throw new ArgumentException("Invalid orderBy parameter"),
-            };
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+            }
         }
     }
 }
