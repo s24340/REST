@@ -13,9 +13,16 @@ namespace REST.Controllers
     {
         private static readonly List<Animal> _animals = new()
         {
-            new Animal { IdAnimal = 1, Name = "Kuba", Description = "abc", Category = "Ssak", Area = "Warszawskie zoo"},
-            new Animal { IdAnimal = 2, Name = "Przemek", Description = "acb", Category = "Plaz", Area = "Warszawskie zoo"},
-            new Animal { IdAnimal = 3, Name = "AATomek", Description = "bca", Category = "Ryba", Area = "Warszawskie zoo"},
+            new Animal { IdAnimal = 1, Name = "Leopard", Description = "Leopards are agile predators.", Category = "Mammal", Area = "Various" },
+            new Animal { IdAnimal = 2, Name = "Gorilla", Description = "Gorillas are the largest living primates.", Category = "Mammal", Area = "Africa" },
+            new Animal { IdAnimal = 3, Name = "Koala", Description = null, Category = "Mammal", Area = "Australia" },
+            new Animal { IdAnimal = 4, Name = "Lizard", Description = "Lizards are reptiles with long bodies and tails.", Category = "Reptile", Area = "Various" },
+            new Animal { IdAnimal = 5, Name = "Ostrich", Description = "Ostriches are flightless birds with long necks.", Category = "Bird", Area = "Africa" },
+            new Animal { IdAnimal = 6, Name = "Shark", Description = "Sharks are cartilaginous fish known for their sharp teeth.", Category = "Fish", Area = "Ocean" },
+            new Animal { IdAnimal = 7, Name = "Polar Bear", Description = "Polar bears are marine mammals native to the Arctic.", Category = "Mammal", Area = "Arctic" },
+            new Animal { IdAnimal = 8, Name = "Gazelle", Description = "Gazelles are swift and graceful antelopes.", Category = "Mammal", Area = "Africa" },
+            new Animal { IdAnimal = 9, Name = "Hippopotamus", Description = "Hippos are large herbivorous mammals.", Category = "Mammal", Area = "Africa" },
+            new Animal { IdAnimal = 10, Name = "Zebra", Description = null, Category = "Mammal", Area = "Africa" }
         };
 
         [HttpGet]
