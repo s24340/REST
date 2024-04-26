@@ -126,7 +126,7 @@ namespace REST.Controllers
             }
         }
 
-
+        [HttpDelete("{id:int}")]
         public IActionResult DeleteAnimal(int id)
         {
             string query = @"DELETE FROM Animals WHERE IdAnimal = @Id";
